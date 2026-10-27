@@ -1,5 +1,3 @@
-% CSE558 Data Science — Midterm Project Report, Monsoon 2026
-% Prepared using the course-provided report template structure.
 \documentclass[10pt,a4paper]{article}
 \usepackage{iftex}
 \ifPDFTeX
@@ -57,14 +55,14 @@ Code & \url{https://github.com/PranavAggarwal422/CSE558-Data-Science-Project}\\
 \textbf{Raw size and comparable fields.} The six files contain 22,836,530 rows. January--May have 20 common fields; June has an additional \code{request\_source} field with 73.6\% missing values. The analysis retains the 20 shared fields, adds \code{source\_month}, and derives \code{duration\_minutes} from pickup and drop-off timestamps.
 
 \begin{center}\small
-\begin{tabularx}{\linewidth}{@{}L{2.65cm}rr@{}}
-\toprule & \textbf{Raw} & \textbf{Prepared}\\\midrule
-Rows & 22,836,530 & 21,846,625\\
-Attributes used & 20 shared & 22\\
-Rows $\times$ attributes & 456,730,600 & 480,625,750\\
+\begin{tabularx}{\linewidth}{@{}L{2.45cm}rrr@{}}
+\toprule & \textbf{Raw} & \textbf{Prepared} & \textbf{Encoded}\\\midrule
+Rows & 22,836,530 & 21,846,625 & 21,846,625\\
+Attributes / features & 20 shared & 22 & 563\\
+Rows $\times$ columns & 456,730,600 & 480,625,750 & 12,319,851,875\\
 \bottomrule\end{tabularx}
 \end{center}
-The prepared size is $21{,}846{,}625\times22=480{,}625{,}750\geq3{,}000{,}000$. This is the required row-by-column size calculation; it does not imply every field is complete or that every field was one-hot encoded.
+The required post-encoding size is $21{,}846{,}625\times563=12{,}319{,}851{,}875\geq3{,}000{,}000$. All prepared rows are represented in the encoded output. This size criterion counts rows times encoded columns; it does not mean all numeric cells are non-missing.
 
 \textbf{Key features.}
 \begin{center}\footnotesize
@@ -144,7 +142,9 @@ Confirmation partition & -- & 4,367,163\\
 \item \textbf{Rows removed cumulatively:} 989,905.
 \item \textbf{Rows retained:} 95.67\% of the raw data.
 \end{itemize}
-\textbf{Reproducible split.} The split is deterministic and hash-based, rather than random: the same record keys and hashing/modulo rule assign a record to the same partition when rerun. No random seed is needed. The exploration partition is used for EDA and the held-out confirmation partition for the reported tests.
+
+\textbf{Reproducible split.} The split is deterministic and uses DuckDB's \code{hash} on a concatenated key containing pickup timestamp, drop-off timestamp, \code{VendorID},   \code{PULocationID}, 
+\code{DOLocationID}, \code{trip\_distance}, \code{fare\_amount}, and \code{source\_month}; nulls in the key are replaced with the literal \code{<NULL>}. Records with hash modulo 5 equal to 0 go to confirmation; all others go to exploration. This produced 17,479,462 exploration rows and 4,367,163 confirmation rows. No random seed is used. EDA uses exploration and the reported tests use confirmation. Reproduction requires the same prepared data, key construction, DuckDB hash implementation, and modulo rule; records sharing the selected key values are assigned together.
 
 \section{Feature encoding}
 The prepared table has 22 attributes; the encoded representation has 563 features. Seven categorical fields were one-hot encoded and 13 numeric fields were retained. Timestamp fields were excluded from this encoded matrix because they are not directly model features in the current encoding.
@@ -169,13 +169,32 @@ Numeric missing cells preserved & 15,983,793\\
 \end{center}
 
 Validation confirmed 563 feature columns and the expected total row count across all chunks. Missing numeric values were preserved, not imputed; therefore, the encoded output is a sparse encoding artifact, not a fully imputed model-ready matrix.
-
 \newpage
 \section{Basic questions and problem statement}
-\begin{figure}[!htbp]\figfile{figures/duration_distribution.png}{2.55cm}\caption{Duration is right-skewed: the mean exceeds the median because a minority of long trips raises the average.}\end{figure}
-\begin{figure}[!htbp]\figfile{figures/distance_distribution.png}{2.55cm}\caption{Most recorded distances are short, with a long right tail.}\end{figure}
-\begin{figure}[!htbp]\figfile{figures/hourly_duration.png}{2.55cm}\caption{Mean duration varies by pickup hour and is highest around 15:00 (about 20.84 minutes).}\end{figure}
-\begin{figure}[!htbp]\figfile{figures/monthly_duration.png}{2.55cm}\caption{Mean duration rises from January to May and falls in June.}\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \figfile{figures/duration_distribution.png}{2.55cm}
+    \caption{Duration is right-skewed: the mean exceeds the median because a minority of long trips raises the average.}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \figfile{figures/distance_distribution.png}{2.55cm}
+    \caption{Most recorded distances are short, with a long right tail.}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \figfile{figures/hourly_duration.png}{2.55cm}
+    \caption{Mean duration varies by pickup hour and is highest around 15:00 (about 20.84 minutes).}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \figfile{figures/monthly_duration.png}{2.55cm}
+    \caption{Mean duration rises from January to May and falls in June.}
+\end{figure}
 \textbf{Basic questions.}
 \begin{enumerate}
 \item How are trip duration and distance distributed, including their upper tails?
@@ -211,7 +230,7 @@ Here $W$ and $D$ denote weekend and weekday dates. Welch's test compares two ind
 \begin{tabularx}{\linewidth}{@{}L{1.7cm}Y@{}}
 \toprule \textbf{Alternative} & \textbf{Why not selected}\\\midrule
 Two-sample $z$-test & Population standard deviation is not known.\\
-Pooled two-sample $t$-test & Requires equal group variances; Welch's test does not.\\
+Pooled two-sample $t$-test & Requires equal group variances; Welch's test does not. An $F$-test could compare variances first, but adds a preliminary decision and is sensitive to non-normality.\\
 Paired $t$-test & A date cannot be both a weekend and weekday date.\\
 \bottomrule\end{tabularx}
 \normalsize
@@ -278,7 +297,7 @@ Welch's test compares independent weekend and weekday date groups without assumi
 \begin{tabularx}{\linewidth}{@{}L{1.7cm}Y@{}}
 \toprule \textbf{Alternative} & \textbf{Why not selected}\\\midrule
 Two-sample $z$-test & Population standard deviation is unknown.\\
-Pooled two-sample $t$-test & Adds an equal-variance assumption.\\
+Pooled two-sample $t$-test & Adds an equal-variance assumption. An $F$-test could compare variances first, but is sensitive to non-normality and is unnecessary for Welch's test.\\
 Paired $t$-test & Weekend and weekday dates are separate groups, not matched pairs.\\
 \bottomrule\end{tabularx}
 \normalsize
@@ -295,7 +314,16 @@ Decision & Fail to reject $H_0$\\
 \normalsize
 \textbf{Conclusion:} Fail to reject $H_0$. The interval includes zero and is not wholly beyond either practical threshold; this does not prove equivalence.
 
-\textbf{Sensitivity to extreme distances.} The prepared data contain 893 trips above 100 miles, including records with distances exceeding 300,000 miles. These values strongly influence date-level mean distance. On the confirmation partition, the original analysis gives a weekend-minus-weekday difference of $-0.449$ miles ($p=0.502$). Restricting the sensitivity analysis to trips with distance at most 50 miles changes the estimate to $+0.101$ miles and gives $p=0.0388$ (95\% CI $[0.005,0.196]$). Although this filtered result is statistically significant at 0.05, its estimated difference is below the preselected practical threshold of 0.25 miles. The direction and significance therefore depend on the distance treatment. This is reported as a sensitivity analysis only; the main prepared data and original T3 result were not changed, and the threshold does not establish that every excluded trip is erroneous.
+\textbf{Sensitivity to extreme distances.} The prepared data contain 893 trips exceeding 100 miles, including values above 300,000 miles. To assess their influence on T3, we repeated the analysis after restricting trips to distances of at most 50 miles.
+
+\begin{itemize}
+\item \textbf{Original T3:} Weekend-minus-weekday difference = $-0.449$ miles ($p=0.502$).
+\item \textbf{Filtered analysis:} Difference = $+0.101$ miles (95% CI $[0.005, 0.196]$, $p=0.0388$).
+\item \textbf{Practical interpretation:} Although statistically significant, the filtered difference is below the preselected practical threshold of $0.25$ miles.
+\end{itemize}
+
+The direction and statistical significance depend on the treatment of extreme distances. This sensitivity analysis does not change the original dataset or primary T3 result, and the cutoff does not imply that every excluded trip is erroneous.
+
 
 \subsection*{Test 4 (P4): payment type and weekend status}
 \textbf{Problem statement (P4).} Is payment-type distribution associated with whether a trip occurs on a weekday or weekend?
@@ -310,9 +338,11 @@ Method & Pearson chi-square test of independence on the payment-type by weekday/
 \bottomrule
 \end{tabularx}
 \end{center}
-\textbf{b) Why this test.} Both variables are categorical, and the question concerns whether their distributions are independent. A chi-square goodness-of-fit test would test one categorical variable against a specified distribution, not association between two variables. A $t$-test compares means and is not appropriate for these categorical counts.
+\textbf{b) Why this test.} Both variables are categorical, and the question concerns whether their distributions are independent. A chi-square goodness-of-fit test would test one categorical variable against a specified distribution, not association between two variables. A $t$-test compares means and is not appropriate for these categorical counts. A two-proportion $z$-test can compare one prespecified category between weekdays and weekends, but cannot replace the omnibus test across all payment categories.
 
-\textbf{c) Result}
+\textbf{Record handling.} Payment code 5 is documented as \emph{Unknown}. The single record with code 5 is excluded only from this test because the test compares the observed payment categories 0--4; it remains in the prepared dataset and is not removed from Tests 1--3. The contingency table therefore contains 4,367,162 trips.
+
+\textbf{c) Primary result}
 \begin{center}\small
 \begin{tabularx}{\linewidth}{@{}L{2.5cm}Y@{}}
 \toprule
@@ -326,6 +356,7 @@ Method & Pearson chi-square test of independence on the payment-type by weekday/
 \end{tabularx}
 \end{center}
 \textbf{Conclusion:} Payment-type distribution is associated with weekday/weekend status. This is not evidence of causation, and the $p$-value alone does not measure practical importance.
+
 
 \textbf{Summary.} T1 and T2 show duration differences beyond the one-minute practical threshold. T3 is not significant in the primary analysis and is sensitive to extreme distances. T4 finds an association between payment type and weekend status. T1--T3 use 181 date-level summaries; T4 uses trip-level counts.
 
