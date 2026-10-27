@@ -1,0 +1,11 @@
+pandas==2.2.3
+pyarrow==22.0.0
+duckdb==1.4.1
+numpy==2.2.6
+scipy==1.15.3
+statsmodels==0.14.5
+scikit-learn==1.7.2
+matplotlib==3.10.7
+seaborn==0.13.2
+PyYAML==6.0.3
+pytest==8.4.2

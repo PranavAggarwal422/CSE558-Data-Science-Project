@@ -1,0 +1,9 @@
+stage,record_count
+Raw records across all six files,22836530
+Records with both timestamps present,22836530
+Records with positive duration,22550348
+Records with positive duration and positive distance,21852265
+Records also matching their source pickup month,21852184
+Final prepared records after six-hour duration cutoff,21846625
+Records in exploration partition,17479462
+Records in confirmation partition,4367163

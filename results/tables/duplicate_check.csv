@@ -1,0 +1,2 @@
+dataset,total_rows,distinct_row_hashes,duplicate_rows_by_hash_count
+trips_prepared.parquet,21846625,21846625,0

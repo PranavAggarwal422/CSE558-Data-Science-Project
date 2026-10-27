@@ -1,0 +1,388 @@
+% CSE558 Data Science — Midterm Project Report, Monsoon 2026
+% Prepared using the course-provided report template structure.
+\documentclass[10pt,a4paper]{article}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \IfFileExists{carlito.sty}{\usepackage[sfdefault]{carlito}}{\usepackage[scaled=0.92]{helvet}\renewcommand{\familydefault}{\sfdefault}}
+  \usepackage{courier}
+\else
+  \usepackage[no-math]{fontspec}
+  \setmainfont{Carlito}[Extension=.ttf,UprightFont=*-Regular,BoldFont=*-Bold,ItalicFont=*-Italic,BoldItalicFont=*-Bold]
+\fi
+\usepackage[margin=18mm,bottom=20mm,columnsep=7mm]{geometry}
+\usepackage{amsmath,xcolor,graphicx,tabularx,array,booktabs,enumitem,titlesec,needspace,longtable,float}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage[colorlinks=true,linkcolor=blue,urlcolor=blue,citecolor=blue]{hyperref}
+\hypersetup{pdftitle={NYC Yellow Taxi Trip Duration: Patterns and Statistical Inference},pdfsubject={CSE558 Data Science, Monsoon 2026: Midterm Project Report}}
+\titleformat{\section}{\normalfont\large\bfseries}{\thesection.}{0.5em}{}
+\titlespacing*{\section}{0pt}{12pt}{3pt}
+\titleformat{\subsection}{\normalfont\normalsize\bfseries}{\thesubsection}{0.5em}{}
+\titlespacing*{\subsection}{0pt}{10pt}{2pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}\linespread{1.0}
+\setlist{leftmargin=1.2em,itemsep=2pt,topsep=2pt,parsep=0pt}
+\renewcommand{\arraystretch}{1.25}
+\setlength{\tabcolsep}{4pt}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{K}[1]{>{\raggedright\arraybackslash\bfseries\boldmath}p{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\figfile}[2]{\includegraphics[width=\linewidth,height=#2,keepaspectratio]{#1}}
+\newcommand{\testpart}[2]{\par\smallskip\textbf{#1)~#2}\par}
+\begin{document}
+{
+{\small\bfseries CSE558 Data Science\ \ \textbullet\ \ Midterm Project Report\ \ \textbullet\ \ Monsoon 2026\par}
+\vspace{3pt}
+{\LARGE\bfseries\raggedright NYC Yellow Taxi Trip Duration: Patterns and Statistical Inference\par}
+\vspace{5pt}\rule{\linewidth}{0.8pt}\vspace{3pt}
+{\small\begin{tabularx}{\linewidth}{@{}K{2.0cm}Y@{}}
+Group name & DataForge 1\\
+Dataset & NYC TLC Yellow Taxi Trip Records, January--June 2026\\
+Code & \url{https://github.com/PranavAggarwal422/CSE558-Data-Science-Project}\\
+\bottomrule\end{tabularx}}
+\vspace{4pt}
+{\small\begin{tabularx}{\linewidth}{@{}L{0.35cm}L{2.25cm}L{1.2cm}L{4.0cm}Y@{}}
+\toprule \textbf{\#}&\textbf{Name}&\textbf{Roll no.}&\textbf{Institute email}&\textbf{Contribution}\\\midrule
+1 & Pranav Aggarwal & 2024422 & \url{pranav24422@iiitd.ac.in} & Data preparation, encoding, EDA; Tests 1--2; report writing (shared)\\
+2 & Nirvan & 2024390 & \url{nirvan24390@iiitd.ac.in} & Data-quality audit, sensitivity analysis; Tests 3--4; report writing (shared)\\
+\bottomrule\end{tabularx}}
+\vspace{5pt}
+}
+
+\section{Dataset}
+\textbf{Source.} The dataset is the official New York City Taxi and Limousine Commission (TLC) Yellow Taxi Trip Records. Six monthly Parquet files, January--June 2026, were downloaded from the \href{https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page}{TLC trip-record data page}. Each row represents a recorded taxi trip.
+
+\textbf{Raw size and comparable fields.} The six files contain 22,836,530 rows. January--May have 20 common fields; June has an additional \code{request\_source} field with 73.6\% missing values. The analysis retains the 20 shared fields, adds \code{source\_month}, and derives \code{duration\_minutes} from pickup and drop-off timestamps.
+
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}L{2.65cm}rr@{}}
+\toprule & \textbf{Raw} & \textbf{Prepared}\\\midrule
+Rows & 22,836,530 & 21,846,625\\
+Attributes used & 20 shared & 22\\
+Rows $\times$ attributes & 456,730,600 & 480,625,750\\
+\bottomrule\end{tabularx}
+\end{center}
+The prepared size is $21{,}846{,}625\times22=480{,}625{,}750\geq3{,}000{,}000$. This is the required row-by-column size calculation; it does not imply every field is complete or that every field was one-hot encoded.
+
+\textbf{Key features.}
+\begin{center}\footnotesize
+\begin{tabularx}{\linewidth}{@{}L{3.0cm}L{2.0cm}Y@{}}
+\toprule \textbf{Feature} & \textbf{Type} & \textbf{Real-world meaning}\\\midrule
+duration\_minutes & Continuous & Elapsed time between pickup and drop-off, in minutes; response for duration tests.\\
+trip\_distance & Continuous & Recorded trip distance in miles.\\
+tpep\_pickup\_datetime & Discrete & Recorded pickup date and time.\\
+tpep\_dropoff\_datetime & Discrete & Recorded drop-off date and time.\\
+PULocationID & Nominal & TLC identifier for pickup zone.\\
+DOLocationID & Nominal & TLC identifier for drop-off zone.\\
+VendorID & Nominal & Recorded taxi vendor identifier.\\
+payment\_type & Nominal & Recorded payment category.\\
+fare\_amount & Continuous & Recorded base fare, in US dollars.\\
+total\_amount & Continuous & Recorded total charged amount, in US dollars.\\
+passenger\_count & Discrete & Recorded passenger count; missing in 24.3879\% of rows.\\
+\bottomrule\end{tabularx}
+\end{center}
+
+\clearpage
+\section{Data preparation}
+Each row below records a preparation decision, its quantified effect, and the reason for choosing it over an alternative.
+\small
+\begin{longtable}{@{}L{2.5cm}L{3.8cm}L{2.0cm}L{8.0cm}@{}}
+\toprule
+\textbf{Issue found} & \textbf{What we did} & \textbf{Effect} & \textbf{Why this choice, not the alternative}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Issue found} & \textbf{What we did} & \textbf{Effect} & \textbf{Why this choice, not the alternative}\\
+\midrule
+\endhead
+Schema mismatch & Dropped June-only \code{request\_source}; retained the 20 shared raw fields. & 1 field excluded & The field is absent from January--May and 73.6\% missing in June, so keeping it would create an inconsistent cross-month schema.\\
+Non-positive duration & Removed records with drop-off at or before pickup. & 286,182 rows removed & A trip's elapsed duration must be positive; retaining these records would make duration undefined or invalid.\\
+Non-positive distance & Removed records with trip distance $\leq 0$. & 698,083 additional rows removed & The distance analysis requires positive distances. These rows were removed after the duration filter.\\
+Source-month mismatch & Removed records whose pickup month did not match the source file month. & 81 additional rows removed & This prevents incorrect monthly attribution.\\
+Extreme duration & Applied a 360-minute upper cutoff. & 5,559 additional rows removed & Raw diagnostics included multi-day recorded durations, including examples paired with very short distances. The cutoff is a pragmatic anomaly screen, not proof that every trip longer than six hours is erroneous.\\
+Missing optional fields & Retained rows and left the five fields missing rather than imputing values. & 5,327,931 rows affected & All five fields are missing on exactly the same rows. The current inference questions do not require these fields, and imputation would add unsupported values.\\
+Unusual monetary values & Retained negative, zero and large fare/total amounts. & Counts reported in the audit table below & Adjustments or reversals may explain some unusual amounts; available evidence does not justify blanket deletion.\\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\subsection{Data-quality audit: findings and decisions}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.0cm}L{7.0cm}Y@{}}
+\toprule
+\textbf{Check} & \textbf{Finding} & \textbf{Decision}\\
+\midrule
+Missing values & The same 5,327,931 rows (24.3879\%) are missing all five fields; no partial-overlap rows. & Retain rows; no imputation for the current inference questions.\\
+Distance extremes & 893 trips exceed 100 miles; 514 exceed 500 miles; 513 exceed 1,000 miles. Maximum: 328,522.2 miles. & Keep in primary dataset; report sensitivity analysis separately.\\
+Distance-duration mismatch & 601 trips exceed 100 miles but have duration below 60 minutes. & Strong anomaly signal; no record-level deletion without a defensible rule.\\
+Negative / unusual amounts & 117,743 negative fares; 120,297 negative total amounts; 13,084 zero fares; 233 fares above \$500. & Retain; adjustments or reversals may explain some values.\\
+Duplicate screen & 21,846,625 distinct full-row MD5 hashes across 21,846,625 prepared rows; zero duplicate hashes. & No duplicate rows removed. This is a practical hash screen.\\
+\bottomrule
+\end{tabularx}
+\normalsize
+
+\textbf{Missingness overlap (verified).} All five fields are missing on exactly the same 5,327,931 rows (24.3879\%). No rows have only a subset of these five fields missing; the remaining 16,518,694 rows have observed values in all five fields. No imputation was applied.
+
+\textbf{Duration cutoff.} The 360-minute rule removed 5,559 of the 21,852,184 rows reaching this stage (0.0254\%). Earlier raw diagnostics found durations up to about 9,983.9 minutes (166.4 hours). Examples include multi-day recorded durations paired with short distances (e.g., 0.07 miles over about 5.2 days). This supports treating the extreme upper tail as a recording-anomaly risk, but does not prove every trip above six hours is invalid. The cutoff is retained as a documented cleaning rule, with this limitation stated explicitly.
+
+\twocolumn
+\section{What changed after preparation}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}L{3.2cm}rr@{}}
+\toprule \textbf{Measure} & \textbf{Before} & \textbf{After}\\\midrule
+Rows & 22,836,530 & 21,846,625\\
+Shared raw attributes & 20 & 20\\
+Derived attributes & 0 & 2\\
+Total attributes & 20 & 22\\
+Exploration partition & -- & 17,479,462\\
+Confirmation partition & -- & 4,367,163\\
+\bottomrule\end{tabularx}
+\end{center}
+\begin{itemize}
+\item \textbf{Rows removed cumulatively:} 989,905.
+\item \textbf{Rows retained:} 95.67\% of the raw data.
+\end{itemize}
+\textbf{Reproducible split.} The split is deterministic and hash-based, rather than random: the same record keys and hashing/modulo rule assign a record to the same partition when rerun. No random seed is needed. The exploration partition is used for EDA and the held-out confirmation partition for the reported tests.
+
+\section{Feature encoding}
+The prepared table has 22 attributes; the encoded representation has 563 features. Seven categorical fields were one-hot encoded and 13 numeric fields were retained. Timestamp fields were excluded from this encoded matrix because they are not directly model features in the current encoding.
+
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}L{3.0cm}Y@{}}
+\toprule
+\textbf{Encoding audit} & \textbf{Result}\\
+\midrule
+Input rows / encoded rows & 21,846,625 / 21,846,625\\
+Categorical input fields & 7\\
+One-hot categorical features & 550\\
+Numeric features & 13\\
+Total encoded features & 563\\
+Sparse chunks / chunk size & 219 / up to 100,000 rows\\
+Output size & 423,463,254 bytes (about 403.85 MiB)\\
+Nonzero density & 3.02\%\\
+Rows with exactly 7 active categorical indicators & 21,846,625 of 21,846,625\\
+Numeric missing cells preserved & 15,983,793\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Validation confirmed 563 feature columns and the expected total row count across all chunks. Missing numeric values were preserved, not imputed; therefore, the encoded output is a sparse encoding artifact, not a fully imputed model-ready matrix.
+
+\newpage
+\section{Basic questions and problem statement}
+\begin{figure}[!htbp]\figfile{figures/duration_distribution.png}{2.55cm}\caption{Duration is right-skewed: the mean exceeds the median because a minority of long trips raises the average.}\end{figure}
+\begin{figure}[!htbp]\figfile{figures/distance_distribution.png}{2.55cm}\caption{Most recorded distances are short, with a long right tail.}\end{figure}
+\begin{figure}[!htbp]\figfile{figures/hourly_duration.png}{2.55cm}\caption{Mean duration varies by pickup hour and is highest around 15:00 (about 20.84 minutes).}\end{figure}
+\begin{figure}[!htbp]\figfile{figures/monthly_duration.png}{2.55cm}\caption{Mean duration rises from January to May and falls in June.}\end{figure}
+\textbf{Basic questions.}
+\begin{enumerate}
+\item How are trip duration and distance distributed, including their upper tails?
+\item How does mean duration vary by pickup hour?
+\item Does average duration vary across January--June 2026?
+\end{enumerate}
+\textbf{Problem statements.}
+\begin{itemize}
+\item \textbf{P1 (primary):} Is mean daily trip duration different on weekend dates and weekday dates?
+\item \textbf{P2:} On the same date, is mean duration for trips picked up during 14:00--17:59 different from duration for trips picked up during 00:00--03:59?
+\item \textbf{P3:} Is mean daily trip distance different on weekend dates and weekday dates?
+\item \textbf{P4:} Is payment-type distribution associated with whether a trip occurs on a weekday or weekend?
+\end{itemize}
+\Needspace{10\baselineskip}\textbf{Why these questions are not already answered by the obvious descriptive questions.} The basic questions describe distributions and variation by hour or month. P1 and P3 test whether date-level averages differ between weekend and weekday dates; P2 compares two prespecified pickup-time windows within the same date; P4 tests the association between two categorical variables using trip-level counts. These require explicit hypotheses and inferential comparisons on the held-out confirmation partition, rather than visual inspection of descriptive plots alone. The results are observational and do not establish causal effects.
+
+\section{Statistical inferences}
+\textbf{Data and plan.} Tests 1--3 use the 4,367,163 confirmation trips aggregated to 181 calendar-date summaries. Test 1 compares 52 weekend dates with 129 weekdays; Test 2 pairs the two time-period means within each of 181 dates; Test 3 compares weekend and weekday daily mean distance. Test 4 uses trip-level counts in a payment-type by weekday/weekend contingency table. The significance level is $\alpha=0.05$; Tests 1--3 use two-sided alternatives. The smallest practically meaningful differences were set in advance as 1 minute for daily mean duration and 0.25 miles for daily mean distance. These thresholds are project choices, not universal standards.
+
+\subsection*{Test 1 (P1): weekend versus weekday duration}
+\testpart{a}{Hypotheses and method}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}L{2.0cm}Y@{}}
+\toprule Hypotheses & $H_0:\mu_W-\mu_D=0$; $H_1:\mu_W-\mu_D\ne0$\\
+Significance & $\alpha=0.05$; two-sided\\
+Test & Welch two-sample $t$-test\\
+Practical threshold & 1 minute in daily mean duration\\
+\bottomrule\end{tabularx}
+\end{center}
+Here $W$ and $D$ denote weekend and weekday dates. Welch's test compares two independent date groups without requiring equal variances.
+
+\testpart{b}{Other tests considered}
+\small
+\begin{tabularx}{\linewidth}{@{}L{1.7cm}Y@{}}
+\toprule \textbf{Alternative} & \textbf{Why not selected}\\\midrule
+Two-sample $z$-test & Population standard deviation is not known.\\
+Pooled two-sample $t$-test & Requires equal group variances; Welch's test does not.\\
+Paired $t$-test & A date cannot be both a weekend and weekday date.\\
+\bottomrule\end{tabularx}
+\normalsize
+
+\testpart{c}{Result}
+\small
+\begin{tabularx}{\linewidth}{@{}L{2.05cm}Y@{}}
+\toprule Estimate & $-1.971$ minutes (weekend minus weekday)\\
+95\% CI & $[-2.350,-1.593]$ minutes\\
+Test statistic (d.f.) & $t=-10.315$ ($df=127.704$)\\
+$p$-value & $1.62\times10^{-18}$\\
+Decision & Reject $H_0$\\
+\bottomrule\end{tabularx}
+\normalsize
+\textbf{Conclusion:} Reject $H_0$. The 95\% CI lies entirely below $-1$ minute, exceeding the practical threshold.
+
+\subsection*{Test 2 (P2): afternoon versus overnight duration}
+\testpart{a}{Hypotheses and method}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}L{2.0cm}Y@{}}
+\toprule Hypotheses & $H_0:\mu_A-\mu_O=0$; $H_1:\mu_A-\mu_O\ne0$\\
+Significance & $\alpha=0.05$; two-sided\\
+Test & Paired $t$-test by calendar date\\
+Practical threshold & 1 minute in daily mean duration\\
+\bottomrule\end{tabularx}
+\end{center}
+Here afternoon means pickup hours 14--17 and overnight means hours 0--3. Pairing is appropriate because both means are measured on each same date.
+
+\testpart{b}{Other tests considered}
+\small
+\begin{tabularx}{\linewidth}{@{}L{1.7cm}Y@{}}
+\toprule \textbf{Alternative} & \textbf{Why not selected}\\\midrule
+Independent two-sample $t$-test & Ignores that the two means are paired within each date.\\
+Two-sample $z$-test & Requires a known population standard deviation.\\
+\bottomrule\end{tabularx}
+\normalsize
+
+\testpart{c}{Result}
+\small
+\begin{tabularx}{\linewidth}{@{}L{2.05cm}Y@{}}
+\toprule Estimate & $+5.085$ minutes (afternoon minus overnight)\\
+95\% CI & $[4.752,5.418]$ minutes\\
+Test statistic (d.f.) & $t=30.163$ ($df=180$)\\
+$p$-value & $2.66\times10^{-72}$\\
+Decision & Reject $H_0$\\
+\bottomrule\end{tabularx}
+\normalsize
+\textbf{Conclusion:} Reject $H_0$. The 95\% CI lies entirely above $+1$ minute, exceeding the practical threshold; this is not a causal result.
+
+\subsection*{Test 3 (P3): weekend versus weekday distance}
+\testpart{a}{Hypotheses and method}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}L{2.0cm}Y@{}}
+\toprule Hypotheses & $H_0:\mu_W-\mu_D=0$; $H_1:\mu_W-\mu_D\ne0$\\
+Significance & $\alpha=0.05$; two-sided\\
+Test & Welch two-sample $t$-test\\
+Practical threshold & 0.25 miles in daily mean distance\\
+\bottomrule\end{tabularx}
+\end{center}
+Welch's test compares independent weekend and weekday date groups without assuming equal variances.
+
+\testpart{b}{Other tests considered}
+\small
+\begin{tabularx}{\linewidth}{@{}L{1.7cm}Y@{}}
+\toprule \textbf{Alternative} & \textbf{Why not selected}\\\midrule
+Two-sample $z$-test & Population standard deviation is unknown.\\
+Pooled two-sample $t$-test & Adds an equal-variance assumption.\\
+Paired $t$-test & Weekend and weekday dates are separate groups, not matched pairs.\\
+\bottomrule\end{tabularx}
+\normalsize
+
+\testpart{c}{Result}
+\small
+\begin{tabularx}{\linewidth}{@{}L{2.05cm}Y@{}}
+\toprule Estimate & $-0.449$ miles (weekend minus weekday)\\
+95\% CI & $[-1.772,0.873]$ miles\\
+Test statistic (d.f.) & $t=-0.673$ ($df=117.345$)\\
+$p$-value & $0.502$\\
+Decision & Fail to reject $H_0$\\
+\bottomrule\end{tabularx}
+\normalsize
+\textbf{Conclusion:} Fail to reject $H_0$. The interval includes zero and is not wholly beyond either practical threshold; this does not prove equivalence.
+
+\textbf{Sensitivity to extreme distances.} The prepared data contain 893 trips above 100 miles, including records with distances exceeding 300,000 miles. These values strongly influence date-level mean distance. On the confirmation partition, the original analysis gives a weekend-minus-weekday difference of $-0.449$ miles ($p=0.502$). Restricting the sensitivity analysis to trips with distance at most 50 miles changes the estimate to $+0.101$ miles and gives $p=0.0388$ (95\% CI $[0.005,0.196]$). Although this filtered result is statistically significant at 0.05, its estimated difference is below the preselected practical threshold of 0.25 miles. The direction and significance therefore depend on the distance treatment. This is reported as a sensitivity analysis only; the main prepared data and original T3 result were not changed, and the threshold does not establish that every excluded trip is erroneous.
+
+\subsection*{Test 4 (P4): payment type and weekend status}
+\textbf{Problem statement (P4).} Is payment-type distribution associated with whether a trip occurs on a weekday or weekend?
+
+\textbf{a) Hypotheses and method}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}L{2.5cm}Y@{}}
+\toprule
+Hypotheses & $H_0$: payment type and weekday/weekend status are independent; $H_1$: they are associated.\\
+Significance & $\alpha=0.05$; right-tailed chi-square test of independence.\\
+Method & Pearson chi-square test of independence on the payment-type by weekday/weekend contingency table.\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\textbf{b) Why this test.} Both variables are categorical, and the question concerns whether their distributions are independent. A chi-square goodness-of-fit test would test one categorical variable against a specified distribution, not association between two variables. A $t$-test compares means and is not appropriate for these categorical counts.
+
+\textbf{c) Result}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}L{2.5cm}Y@{}}
+\toprule
+\textbf{Method} & Chi-square test of independence\\
+\textbf{Variables} & Payment type (codes 0--4) $\times$ weekday/weekend\\
+\textbf{Records} & 4,367,162; one record with code 5 excluded\\
+\textbf{Result} & $\chi^2=55{,}583.686$, $df=4$, $p<0.001$\\
+\textbf{Minimum expected count} & 3,270.09\\
+\textbf{Decision} & Reject independence at $\alpha=0.05$\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\textbf{Conclusion:} Payment-type distribution is associated with weekday/weekend status. This is not evidence of causation, and the $p$-value alone does not measure practical importance.
+
+\textbf{Summary.} T1 and T2 show duration differences beyond the one-minute practical threshold. T3 is not significant in the primary analysis and is sensitive to extreme distances. T4 finds an association between payment type and weekend status. T1--T3 use 181 date-level summaries; T4 uses trip-level counts.
+
+\section{Limitations}
+\begin{itemize}
+\item \textbf{Association, not cause.} Traffic, weather, holidays, routes and trip purposes may differ by date and hour. These tests cannot isolate a causal effect of weekend status or pickup time.
+\item \textbf{Date-level assumptions.} The 181 daily summaries may be serially dependent or seasonal. The usual $t$-test assumptions are approximate in this setting.
+\item \textbf{Skew and extreme trips.} Duration and distance have long right tails. Daily averaging reduces but does not remove sensitivity to unusual trips.
+\item \textbf{Six-hour cutoff.} Trips above 360 minutes were excluded. Some may be data errors and others may be legitimate; a sensitivity analysis with another cutoff would help measure the impact.
+\item \textbf{Missing optional fields.} Several optional fields have substantial missingness and were not imputed because they are not needed for the current tests. Questions requiring those fields are outside this analysis.
+\item \textbf{Coverage.} The data cover recorded NYC Yellow Taxi trips from January through June 2026, not other transport modes, cities or seasons.
+\item \textbf{Practical thresholds.} The 1-minute and 0.25-mile thresholds were chosen for this project and may not match every passenger's view of a meaningful difference.
+\end{itemize}
+
+\clearpage
+\onecolumn
+\section*{Appendix A. Data dictionary}
+\addcontentsline{toc}{section}{Appendix A. Data dictionary}
+The table lists the 22 attributes in the prepared dataset. Every attribute uses one of the four allowed types: nominal, ordinal, discrete, or continuous. Recorded timestamps are classified as discrete observations; identifiers and category codes are nominal. Ranges are observed in the prepared data, not theoretical limits. Categorical ranges list observed values or the range of observed IDs. Missingness is measured over 21,846,625 prepared rows. The companion CSV, \code{results/tables/data\_dictionary.csv}, includes descriptions, distinct counts, detailed notes and treatment decisions.
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{1.10}
+\begin{longtable}{@{}p{3.7cm}p{1.35cm}p{1.25cm}p{6.0cm}r r@{}}
+\toprule
+\textbf{Attribute (meaning)} & \textbf{Type} & \textbf{Unit} & \textbf{Observed range / categories} & \textbf{Missing} & \textbf{Missing \%}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Attribute (meaning)} & \textbf{Type} & \textbf{Unit} & \textbf{Observed range / categories} & \textbf{Missing} & \textbf{Missing \%}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+source\_month (source file month) & Nominal & YYYY-MM & 2026-01 to 2026-06 (6 values) & 0 & 0.000\\
+VendorID (recording vendor) & Nominal & Code & 1, 2, 6 (3 values) & 0 & 0.000\\
+tpep\_pickup\_datetime (pickup time) & Discrete & Datetime & 2026-01-01 00:00:00 to 2026-06-30 23:59:59 & 0 & 0.000\\
+tpep\_dropoff\_datetime (drop-off time) & Discrete & Datetime & 2026-01-01 00:02:02 to 2026-07-01 00:55:22 & 0 & 0.000\\
+passenger\_count (recorded passenger count) & Discrete & Passengers & 0 to 9; 5,327,931 missing & 5,327,931 & 24.388\\
+trip\_distance (recorded trip distance) & Continuous & Miles & 0.01 to 328,522.2; 893 records $>100$ miles & 0 & 0.000\\
+RatecodeID (rate code) & Nominal & Code & 1, 2, 3, 4, 5, 6, 99; missing category retained in encoding & 5,327,931 & 24.388\\
+store\_and\_fwd\_flag (store-and-forward flag) & Nominal & Y/N code & N, Y; missing category retained in encoding & 5,327,931 & 24.388\\
+PULocationID (pickup zone) & Nominal & TLC zone ID & 262 distinct observed IDs; common values span 1--264 & 0 & 0.000\\
+DOLocationID (drop-off zone) & Nominal & TLC zone ID & 262 distinct observed IDs; common values span 1--265 & 0 & 0.000\\
+payment\_type (payment category) & Nominal & Code & 0, 1, 2, 3, 4, 5 (6 values) & 0 & 0.000\\
+fare\_amount (base fare) & Continuous & USD & -1,683.70 to 1,683.70; negatives retained & 0 & 0.000\\
+extra (extra charges) & Continuous & USD & -7.50 to 244.35 & 0 & 0.000\\
+mta\_tax (MTA tax) & Continuous & USD & -0.50 to 10.50 & 0 & 0.000\\
+tip\_amount (tip) & Continuous & USD & -222.00 to 766.00 & 0 & 0.000\\
+tolls\_amount (tolls) & Continuous & USD & -129.48 to 270.00 & 0 & 0.000\\
+improvement\_surcharge (improvement surcharge) & Continuous & USD & -1.00 to 1.00 & 0 & 0.000\\
+total\_amount (total charged/recorded) & Continuous & USD & -1,815.18 to 1,815.18; negatives retained & 0 & 0.000\\
+congestion\_surcharge (congestion surcharge) & Continuous & USD & -2.50 to 2.50 & 5,327,931 & 24.388\\
+Airport\_fee (airport fee) & Continuous & USD & -2.00 to 5.00 & 5,327,931 & 24.388\\
+cbd\_congestion\_fee (CBD congestion fee) & Continuous & USD & -0.75 to 0.75 & 0 & 0.000\\
+duration\_minutes (derived elapsed duration) & Continuous & Minutes & 0.0167 to 360.0; values above 360 removed by rule & 0 & 0.000\\
+\end{longtable}
+\normalsize
+\textbf{Dictionary interpretation.} The five 24.388\%-missing fields are retained without imputation. The full CSV reports distinct counts and notes; categorical observed-category lists are capped at the top 20 where appropriate and are explicitly not exhaustive. The June-only raw field \code{request\_source} was not carried into the harmonised 22-attribute dataset because it was unavailable in January--May and 73.596\% missing in June.
+\end{document}
+

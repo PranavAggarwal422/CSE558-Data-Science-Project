@@ -1,0 +1,15 @@
+﻿metric,value
+input_rows,21846625
+encoded_rows,21846625
+input_attributes,22
+categorical_input_attributes,7
+categorical_encoded_features,550
+numeric_features,13
+total_encoded_features,563
+chunk_count,219
+chunk_size,100000
+input_rows_times_attributes,480625750
+encoded_rows_times_features,12299649875
+numeric_missing_values_preserved,15983793
+output_bytes,423463254
+elapsed_seconds,229.63
